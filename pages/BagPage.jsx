@@ -437,28 +437,65 @@ const BagPage = (props) => {
         JSON.stringify(selectedCartItems)
       );
 
-      const selectedAddressId = localStorage.getItem("selectedAddressId");
-      if (selectedAddressId) {
-        navigate("/payment", {
-          state: {
-            cartSummary,
-            selectedItems: selectedCartItems,
-          },
-        });
-      } else {
-        navigate("/address", {
-          state: {
-            from: "/payment",
-            cartSummary,
-            selectedItems: selectedCartItems,
-          },
-        });
-      }
+      await checkDefaultAddressAndProceed();
     } catch (err) {
       console.error("Place order (bag) error:", err);
       alert("Failed to proceed to checkout. Check console.");
     } finally {
       setPlacingOrder(false);
+    }
+  };
+
+  const checkDefaultAddressAndProceed = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      // Check if user has a default address
+      const addressResponse = await fetch(
+        "http://localhost:5000/api/user/address",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const addressListData = await addressResponse.json();
+
+      if (!addressResponse.ok) {
+        throw new Error("Failed to fetch addresses");
+      }
+
+      // Find default address
+      const defaultAddress = addressListData.addresses?.find(
+        (addr) => addr.isDefault === true
+      );
+
+      // If no default address, redirect to address page
+      if (!defaultAddress) {
+        navigate("/address", {
+          state: {
+            from: "/bag",
+          },
+        });
+        return;
+      }
+
+      // Save default address ID and proceed to payment
+      localStorage.setItem("selectedAddressId", defaultAddress._id);
+      navigate("/payment", {
+        state: {
+          from: "/bag",
+        },
+      });
+    } catch (error) {
+      console.error("Error checking default address:", error);
+      // If error, redirect to address page
+      navigate("/address", {
+        state: {
+          from: "/bag",
+        },
+      });
     }
   };
 
@@ -477,42 +514,6 @@ const BagPage = (props) => {
           <Typography sx={{ mt: 2, color: "text.secondary" }}>
             Loading your bag...
           </Typography>
-        </Box>
-      </Box>
-    );
-  }
-
-  if (!token) {
-    return (
-      <Box
-        sx={{
-          minHeight: "80vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Box sx={{ textAlign: "center", maxWidth: 400, px: 2 }}>
-          <Box component="img" position="relative" src={"/images/Bag.png"} />
-          <Typography sx={{ fontWeight: 600, mb: 1, fontSize: "20px" }}>
-            Please Log In
-          </Typography>
-          <Typography color="text.secondary" sx={{ mb: 3 }}>
-            Login to view items in your bag.
-          </Typography>
-          <Button
-            variant="contained"
-            href="/login"
-            sx={{
-              border: "1px solid #ff3f6c",
-              color: "#ff3f6c",
-              bgcolor: "transparent",
-              px: 4,
-              py: 1.5,
-            }}
-          >
-            LOGIN
-          </Button>
         </Box>
       </Box>
     );
@@ -544,7 +545,7 @@ const BagPage = (props) => {
     );
   }
 
-  if (cartItems.length === 0) {
+  if (!token || cartItems.length === 0) {
     return (
       <Box
         sx={{
