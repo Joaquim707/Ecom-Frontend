@@ -214,7 +214,7 @@
 // export default OrderConfirmationPage;
 
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import axios from "axios";
 import {
   Box,
@@ -237,6 +237,9 @@ const OrderConfirmationPage = () => {
   const { orderId } = useParams();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const location = useLocation();
+  const fromProfile = location.state?.fromProfile || false;
 
   useEffect(() => {
     const fetchOrder = async () => {
